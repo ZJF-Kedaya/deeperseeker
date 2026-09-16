@@ -57,8 +57,11 @@ from functions import (
     StreamToolParser,
     upload_file,
     get_file_content,
+    sync_accounts_to_db,
+    accounts_file_path,
 )
 from middleware import RecovererMiddleware, RealIPMiddleware, RequestIDMiddleware
+from i18n import t as _t, set_lang, choose_lang, get_lang, LANG_COOKIE
 from plugin_helper import (
     build_prompt,
     build_summary_request_prompt,
@@ -156,6 +159,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="DeeperSeeker", lifespan=lifespan)
 templates = Jinja2Templates(directory="templates")
+# Expose the i18n helpers to every template render (they read the per-request
+# language from a ContextVar, so no extra plumbing is needed in routes).
+templates.env.globals["_"] = _t
+templates.env.globals["lang"] = get_lang
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
@@ -179,6 +186,42 @@ async def limit_body_size(request: Request, call_next):
 app.add_middleware(RealIPMiddleware)
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(RecovererMiddleware)
+
+
+class I18nMiddleware:
+    """Resolve the dashboard language per request and persist it as a cookie.
+
+    Priority: ``?lang=`` query param → ``ds_lang`` cookie → Accept-Language
+    header. Registered as the OUTERMOST middleware so the ContextVar is set
+    before any route runs; the send wrapper attaches a Set-Cookie only when a
+    ``?lang=`` toggle was used, so the choice survives future visits.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope)
+        lang = choose_lang(request)
+        set_lang(lang)
+        persist = request.query_params.get("lang") in ("en", "zh")
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start" and persist:
+                headers = list(message.get("headers", []))
+                headers.append(
+                    (b"set-cookie", f"{LANG_COOKIE}={lang}; Path=/; Max-Age=31536000; SameSite=Lax".encode())
+                )
+                message["headers"] = headers
+            await send(message)
+        await self.app(scope, receive, send_wrapper)
+
+
+# Registered last → outermost, so language is resolved before any route and the
+# Set-Cookie (on ?lang= toggles) wraps every response.
+app.add_middleware(I18nMiddleware)
 
 
 SESSIONS = {}
@@ -1373,7 +1416,7 @@ async def login_submit(request: Request):
     username = form.get("username", "")
     password = form.get("password", "")
     if time.time() < _login_fails["locked_until"]:
-        return templates.TemplateResponse(request, "login.html", {"error": "Too many attempts. Try again later."})
+        return templates.TemplateResponse(request, "login.html", {"error": _t("login_error_locked")})
     if secrets.compare_digest(username.encode("utf-8"), ADMIN_USER.encode("utf-8")) and secrets.compare_digest(password.encode("utf-8"), ADMIN_PASSWORD.encode("utf-8")):
         _login_fails["count"] = 0
         sid = str(uuid.uuid4())
@@ -1385,7 +1428,7 @@ async def login_submit(request: Request):
     if _login_fails["count"] >= 5:
         _login_fails["locked_until"] = time.time() + 300
         _login_fails["count"] = 0
-    return templates.TemplateResponse(request, "login.html", {"error": "Invalid username or password"})
+    return templates.TemplateResponse(request, "login.html", {"error": _t("login_error_invalid")})
 
 
 @app.get("/logout")
@@ -1404,7 +1447,12 @@ async def dashboard(request: Request):
     except HTTPException:
         return HTMLResponse("<meta http-equiv='refresh' content='0;url=/login'>")
     tokens = get_tokens()
-    return templates.TemplateResponse(request, "dashboard.html", {"tokens": tokens})
+    acc_path = accounts_file_path()
+    return templates.TemplateResponse(request, "dashboard.html", {
+        "tokens": tokens,
+        "accounts_path": acc_path,
+        "accounts_exists": os.path.exists(acc_path),
+    })
 
 
 @app.post("/tokens/add")
@@ -1418,6 +1466,20 @@ async def tokens_add(request: Request):
     alias = form.get("alias", "").strip() or None
     if auth_token:
         add_token(auth_token, alias)
+    return HTMLResponse("<meta http-equiv='refresh' content='0;url=/dashboard'>")
+
+
+@app.post("/accounts/reload")
+async def accounts_reload(request: Request):
+    try:
+        get_current_admin(request)
+    except HTTPException:
+        return HTMLResponse("<meta http-equiv='refresh' content='0;url=/login'>")
+    try:
+        count = sync_accounts_to_db()
+    except Exception:
+        logger.exception("Manual account reload failed")
+        count = 0
     return HTMLResponse("<meta http-equiv='refresh' content='0;url=/dashboard'>")
 
 

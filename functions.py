@@ -56,6 +56,103 @@ except Exception:
     _TZ_OFFSET = "19800"
 
 
+def accounts_file_path():
+    """Resolve where the optional multi-account file lives.
+
+    Order: DEEPSEEKER_ACCOUNTS_PATH env > next to the real DB file (which
+    honors DB_PATH) > CWD. Mirrors cookie_file_path() so deployments that move
+    the database into a persistent volume pick up accounts.json automatically.
+    """
+    p = os.getenv("DEEPSEEKER_ACCOUNTS_PATH")
+    if p:
+        return p
+    d = os.path.dirname(os.path.abspath(_db))
+    if d and os.path.abspath(d) != os.path.abspath(os.getcwd()):
+        candidate = os.path.join(d, "accounts.json")
+        if os.path.exists(candidate):
+            return candidate
+    return os.path.join(os.getcwd(), "accounts.json")
+
+
+def load_accounts():
+    """Read accounts.json (the browser-extension export format) and return a
+    list of {name, token} dicts. Invalid/duplicate entries are skipped rather
+    than aborting the import, so one broken row cannot block startup.
+    """
+    path = accounts_file_path()
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        logger.exception("Failed to read accounts file %s", path)
+        return []
+    raw = data.get("accounts") if isinstance(data, dict) else data
+    if not isinstance(raw, list):
+        logger.warning("accounts file %s has no usable 'accounts' list", path)
+        return []
+    accounts = []
+    seen = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        cred = item.get("credential")
+        if not isinstance(cred, dict):
+            continue
+        token = cred.get("token")
+        if not isinstance(token, str) or not token.strip():
+            continue
+        token = token.strip()
+        if token in seen:
+            continue
+        seen.add(token)
+        name = item.get("name") or cred.get("email") or cred.get("id")
+        accounts.append({"name": name, "token": token})
+    return accounts
+
+
+def sync_accounts_to_db():
+    """Import accounts.json into the tokens table.
+
+    Existing tokens are matched by token value, so re-running is idempotent and
+    a RATE_LIMITED account is not resurrected to ACTIVE on every startup —
+    only the alias is refreshed. Returns the number of newly inserted tokens.
+    """
+    accounts = load_accounts()
+    if not accounts:
+        return 0
+    conn = get_db()
+    inserted = 0
+    try:
+        existing = {
+            row[0]
+            for row in conn.execute("SELECT token FROM tokens").fetchall()
+            if row[0]
+        }
+        for acc in accounts:
+            token = acc["token"]
+            alias = acc["name"]
+            if token in existing:
+                conn.execute(
+                    "UPDATE tokens SET alias = ? WHERE token = ? AND (alias IS NULL OR alias != ?)",
+                    (alias, token, alias),
+                )
+                continue
+            conn.execute(
+                "INSERT INTO tokens (alias, token, status) VALUES (?, ?, 'ACTIVE')",
+                (alias, token),
+            )
+            existing.add(token)
+            inserted += 1
+        conn.commit()
+    finally:
+        conn.close()
+    if inserted:
+        logger.info("Imported %d account(s) from %s", inserted, accounts_file_path())
+    return inserted
+
+
 def get_db():
     conn = sqlite3.connect(_db, timeout=30)
     conn.row_factory = sqlite3.Row
@@ -90,6 +187,10 @@ def init_db():
     """)
     conn.commit()
     conn.close()
+    try:
+        sync_accounts_to_db()
+    except Exception:
+        logger.exception("Startup account import failed (non-fatal)")
     try:
         prune_sessions()
     except Exception:

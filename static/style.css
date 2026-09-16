@@ -5,6 +5,9 @@ nav a { color: #58a6ff; text-decoration: none; }
 nav a:hover { text-decoration: underline; }
 nav .sep { color: #30363d; margin: 0 12px; }
 nav .brand { color: #f0f6fc; font-weight: 600; }
+nav .lang-switch { float: right; color: #8b949e; }
+nav .lang-switch a { color: #58a6ff; text-decoration: none; }
+nav .lang-switch a:hover { text-decoration: underline; }
 main { max-width: 900px; margin: 24px auto; padding: 0 24px; }
 h1 { color: #f0f6fc; margin-bottom: 16px; }
 h2 { color: #c9d1d9; font-size: 1.1em; margin: 20px 0 10px; border-bottom: 1px solid #30363d; padding-bottom: 6px; }

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Legacy launcher icon for API 26 is not used (adaptive icon wins there), but
+  minSdk is 26 so this vector still serves as the rounded/fallback asset that
+  the manifest references on any density bucket without a bitmap.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#4D6BFE"
+        android:pathData="M0,0h108v108h-108z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,32h40a8,8 0 0 1 8,8v24a8,8 0 0 1 -8,8h-22l-12,10v-10h-6a8,8 0 0 1 -8,-8v-24a8,8 0 0 1 8,-8z" />
+    <path
+        android:fillColor="#4D6BFE"
+        android:pathData="M54,40l10,12h-6v10h-8v-10h-6z" />
+</vector>

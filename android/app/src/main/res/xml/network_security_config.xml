@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The bridge is typically self-hosted on a LAN address over plain HTTP, so
+  cleartext must be permitted for private ranges. Public HTTPS traffic keeps
+  the platform default trust anchors.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

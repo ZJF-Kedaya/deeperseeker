@@ -1,45 +1,57 @@
 {% extends "base.html" %}
 {% block title %}Dashboard - DeeperSeeker{% endblock %}
 {% block content %}
-<h1>Dashboard</h1>
+<h1>{{ _('dashboard_title') }}</h1>
 
 <section>
-    <h2>Add Auth Token</h2>
+    <h2>{{ _('add_token_title') }}</h2>
     <div class="steps">
-        <p><strong>Steps:</strong></p>
+        <p><strong>{{ _('steps') }}</strong></p>
         <ol>
-            <li>Open <strong>incognito/private</strong> window</li>
-            <li>Go to <a href="https://chat.deepseek.com" target="_blank">chat.deepseek.com</a> and login</li>
-            <li>Open DevTools (F12) → Console → paste:</li>
+            <li>{{ _('step1') }}</li>
+            <li>{{ _('step2_prefix') }}<a href="https://chat.deepseek.com" target="_blank">chat.deepseek.com</a>{{ _('step2_suffix') }}</li>
+            <li>{{ _('step3') }}</li>
         </ol>
         <code>JSON.parse(localStorage.getItem("userToken")).value</code>
         <ol start="4">
-            <li>Copy the token and paste below</li>
-            <li><strong>Remove any surrounding quotes</strong> — paste only the raw token string</li>
-            <li><strong>Close the incognito window</strong> to preserve the login</li>
+            <li>{{ _('step4') }}</li>
+            <li>{{ _('step5') }}</li>
+            <li>{{ _('step6') }}</li>
         </ol>
     </div>
     <div class="warning">
-        If you logout from DeepSeek in browser, this token stops working.
+        {{ _('token_warning') }}
     </div>
     <form method="post" action="/tokens/add">
-        <input type="text" name="alias" placeholder="Alias (optional, e.g. personal, work)" style="width:200px">
-        <input type="text" name="auth_token" placeholder="Paste auth token here (no quotes)" style="width:400px">
-        <button type="submit">Add Token</button>
+        <input type="text" name="alias" placeholder="{{ _('alias_placeholder') }}" style="width:200px">
+        <input type="text" name="auth_token" placeholder="{{ _('token_placeholder') }}" style="width:400px">
+        <button type="submit">{{ _('add_token_button') }}</button>
     </form>
 </section>
 
 <section>
-    <h2>Tokens ({{ tokens|length }})</h2>
+    <h2>{{ _('accounts_title') }}</h2>
+    <p>{{ _('accounts_desc') }}</p>
+    <p>{{ _('accounts_path_label') }} <code>{{ accounts_path }}</code></p>
+    {% if not accounts_exists %}
+    <div class="warning">{{ _('accounts_not_found') }}</div>
+    {% endif %}
+    <form method="post" action="/accounts/reload">
+        <button type="submit">{{ _('accounts_reload_button') }}</button>
+    </form>
+</section>
+
+<section>
+    <h2>{{ _('tokens_header') }} ({{ tokens|length }})</h2>
     {% if tokens %}
     <table>
         <thead>
             <tr>
-                <th>ID</th>
-                <th>Alias</th>
-                <th>Token</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th>{{ _('col_id') }}</th>
+                <th>{{ _('col_alias') }}</th>
+                <th>{{ _('col_token') }}</th>
+                <th>{{ _('col_status') }}</th>
+                <th>{{ _('col_actions') }}</th>
             </tr>
         </thead>
         <tbody>
@@ -55,8 +67,8 @@
                 </td>
                 <td>
                     <form method="post" action="/tokens/{{ tok['id'] }}/delete" style="display:inline"
-                          onsubmit="return confirm('Delete?')">
-                        <button type="submit" class="btn-sm btn-danger">Delete</button>
+                          onsubmit="return confirm('{{ _('confirm_delete') }}')">
+                        <button type="submit" class="btn-sm btn-danger">{{ _('delete_button') }}</button>
                     </form>
                 </td>
             </tr>
@@ -64,14 +76,14 @@
         </tbody>
     </table>
     {% else %}
-    <p>No tokens yet.</p>
+    <p>{{ _('no_tokens') }}</p>
     {% endif %}
 </section>
 
 <section>
-    <h2>API</h2>
-    <p>OpenAI: <code>http://localhost:4000/v1</code></p>
-    <p>Anthropic: <code>http://localhost:4000</code></p>
-    <p>Model: <code>v4.1flash</code> (single default DeepSeek model)</p>
+    <h2>{{ _('api_title') }}</h2>
+    <p>{{ _('api_openai') }} <code>http://localhost:4000/v1</code></p>
+    <p>{{ _('api_anthropic') }} <code>http://localhost:4000</code></p>
+    <p>{{ _('api_model') }} <code>v4.1flash</code> {{ _('api_model_note') }}</p>
 </section>
 {% endblock %}
