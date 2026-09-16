@@ -157,10 +157,12 @@ class ChatViewModel(
         val text = current.input.trim()
         if (text.isEmpty() || current.isSending) return
 
-        val conversationId = current.activeId ?: run {
-            newConversation()
-            _state.value.activeId
-        } ?: return
+        val conversationId = current.activeId
+            ?: run {
+                newConversation()
+                _state.value.activeId
+            }
+            ?: return
 
         val userMessage = ChatMessage(role = Role.USER, content = text)
         // The placeholder assistant bubble is what streaming writes into.

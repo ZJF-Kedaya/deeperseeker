@@ -8,6 +8,7 @@ import com.deeperseeker.app.net.TokenInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -42,9 +43,7 @@ class ManageViewModel(
     init {
         viewModelScope.launch {
             repository.restoreSession()
-            val saved = ServiceLocator.settings.adminUserFlow.let { flow ->
-                runCatching { kotlinx.coroutines.flow.first(flow) }.getOrDefault("")
-            }
+            val saved = ServiceLocator.settings.adminUserFlow.first()
             _state.update { it.copy(username = saved) }
             if (saved.isNotBlank()) refresh()
         }

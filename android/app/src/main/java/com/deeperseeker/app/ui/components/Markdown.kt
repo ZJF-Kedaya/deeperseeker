@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -36,12 +37,15 @@ fun MarkdownText(
     modifier: Modifier = Modifier,
 ) {
     val blocks = remember(text) { splitBlocks(text) }
+    // Read the theme here: inlineMarkdown is a plain function and cannot touch
+    // MaterialTheme, which is a @Composable-only property.
+    val inlineCodeBackground = MaterialTheme.colorScheme.surfaceVariant
     Column(modifier = modifier) {
         for (block in blocks) {
             when (block) {
                 is Block.Code -> CodeBlock(block.content, block.language)
                 is Block.Paragraph -> Text(
-                    text = inlineMarkdown(block.content),
+                    text = inlineMarkdown(block.content, inlineCodeBackground),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(vertical = 2.dp),
                 )
@@ -128,7 +132,7 @@ private fun CodeBlock(content: String, language: String?) {
  * Applies inline emphasis. Order matters: `**bold**` is matched before `*italic*`
  * so the bold marker is not consumed by the italic rule.
  */
-private fun inlineMarkdown(text: String): AnnotatedString = buildAnnotatedString {
+private fun inlineMarkdown(text: String, codeBackground: Color): AnnotatedString = buildAnnotatedString {
     var index = 0
     while (index < text.length) {
         when {
@@ -151,7 +155,7 @@ private fun inlineMarkdown(text: String): AnnotatedString = buildAnnotatedString
                     withStyle(
                         SpanStyle(
                             fontFamily = FontFamily.Monospace,
-                            background = MaterialTheme.colorScheme.surfaceVariant,
+                            background = codeBackground,
                         )
                     ) {
                         append(text.substring(index + 1, end))
